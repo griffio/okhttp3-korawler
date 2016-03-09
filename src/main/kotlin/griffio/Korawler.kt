@@ -1,30 +1,32 @@
 package griffio
 
-import okhttp3.*
-import java.io.File
+import okhttp3.Callback
+import okhttp3.Call
+import okhttp3.OkHttpClient
+import okhttp3.HttpUrl
+import okhttp3.Request
+import okhttp3.Response
 import java.io.IOException
 import java.util.concurrent.LinkedBlockingQueue
 
 fun main(args: Array<String>) {
+
     if (args.size != 2) {
         println("Usage: Korawler <cache dir> <root>")
         return
     }
-    val cacheByteCount = 1024L * 1024L * 100L
-    val cache = Cache(File(args[0]), cacheByteCount)
-    val client = OkHttpClient.Builder().cache(cache).build()
+
+    val client = OkHttpClient.Builder().build()
     val url = HttpUrl.parse(args[1])
     val korawler = Korawler(client)
-    val body1 = korawler.getSynchronous(url)
-    print(body1)
-
-    val csv = body1.orEmpty()
-
+    val blogs = korawler.getSynchronous(url)
+    val csv = blogs.orEmpty()
     val lines = csv.lines()
 
     for (i in 1..lines.size -1) {
         val blogUrl = lines[i].substringAfter(",").substringBefore(",")
         if (!blogUrl.isNullOrBlank()) {
+            println(blogUrl)
             korawler.getAsynchronous(HttpUrl.parse(blogUrl))
         }
     }
@@ -66,7 +68,7 @@ public class Korawler(val client: OkHttpClient) {
     }
 
     fun drainQueuedCalls() {
-        while (client.dispatcher().queuedCallsCount() > 0) {
+        while (client.dispatcher().queuedCallsCount() > 0 || client.dispatcher().runningCallsCount() > 0 || queue.size > 0) {
             println(queue.take())
         }
     }
