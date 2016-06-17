@@ -41,10 +41,10 @@ public class Korawler(val client: OkHttpClient) {
     var queue = LinkedBlockingQueue<String>()
 
     fun getSynchronous(url: HttpUrl): String? {
-        var request = Request.Builder().url(url).build()
-        var response = client.newCall(request).execute()
+        val request = Request.Builder().url(url).build()
+        val response = client.newCall(request).execute()
         if (!response.isSuccessful) throw IOException("Unexpected code " + response)
-        var responseHeaders = response.headers()
+        val responseHeaders = response.headers()
         for (i in 0..responseHeaders.size() - 1) {
             System.out.printf("%s %s", responseHeaders.name(i), responseHeaders.value(i))
         }
@@ -53,7 +53,7 @@ public class Korawler(val client: OkHttpClient) {
 
     fun getAsynchronous(url: HttpUrl) {
 
-        var request = Request.Builder().url(url).build()
+        val request = Request.Builder().url(url).build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call?, ioEx: IOException?) {
