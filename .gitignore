@@ -3,3 +3,4 @@
 build
 cacheDir
 *.iml
+/blogs.csv
