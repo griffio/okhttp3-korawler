@@ -2,7 +2,6 @@ package griffio
 
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
-import java.io.File
 import java.io.FileWriter
 import java.net.URL
 import java.security.SecureRandom
@@ -14,8 +13,12 @@ import javax.net.ssl.X509TrustManager
 fun okClient(): OkHttpClient {
 
   val acceptAllTrustManager = object : X509TrustManager {
-    override fun checkClientTrusted(certs: Array<out X509Certificate>?, authType: String?) { }
-    override fun checkServerTrusted(certs: Array<out X509Certificate>?, authType: String?) { }
+    override fun checkClientTrusted(certs: Array<out X509Certificate>?, authType: String?) {
+    }
+
+    override fun checkServerTrusted(certs: Array<out X509Certificate>?, authType: String?) {
+    }
+
     override fun getAcceptedIssuers(): Array<out X509Certificate> = emptyArray()
   }
 
@@ -23,7 +26,7 @@ fun okClient(): OkHttpClient {
   sc.init(null, arrayOf(acceptAllTrustManager), SecureRandom())
 
   return OkHttpClient.Builder()
-      .sslSocketFactory(sc.socketFactory)
+      .sslSocketFactory(sc.socketFactory, acceptAllTrustManager)
       .hostnameVerifier { hostname, sslSession -> true }
       .followRedirects(false).followSslRedirects(false).build()
 }
@@ -46,20 +49,17 @@ fun main(args: Array<String>) {
     val name = scanner.next()
     val blog = scanner.next()
     val github = scanner.next()
-    val jobs = scanner.next()
+    val careers = scanner.next()
 
     println(blog)
-    println(jobs)
+    println(careers)
 
-    val blogUrl = HttpUrl.parse(blog)
-    val jobsUrl = HttpUrl.parse(jobs)
+    val blogUrl = URL(blog)
+    val jobsUrl = URL(careers)
 
-    request(ok, blogUrl)?.let { blog ->
-      request(ok, jobsUrl)?.let { jobs ->
-        result.append("$name,$blog,$github,$jobs").appendln()
-      }
+    requests(ok, KoData(name, blogUrl, github, jobsUrl)).let {
+      result.appendln("$name,$blog,$github,$careers")
     }
-
   }
 
   FileWriter("blogs.csv").use { f ->
@@ -67,7 +67,16 @@ fun main(args: Array<String>) {
   }
 }
 
-fun request(ok: OkHttpClient, url: HttpUrl): String? {
+fun requests(ok: OkHttpClient, data: KoData): KoData? {
+  request(ok, data.blog)?.let { blog ->
+    request(ok, data.careers)?.let { careers ->
+      return data.copy(blog = URL(blog), careers = URL(careers))
+    }
+  }
+  return null
+}
+
+fun request(ok: OkHttpClient, url: URL): String? {
 
   val response = Korawler(ok).getSynchronousOKResponse(url)
 
@@ -76,7 +85,7 @@ fun request(ok: OkHttpClient, url: HttpUrl): String? {
       url.toString()
     }
     is OKResponse.Redirect -> {
-      response.location
+      if (response.location.startsWith("/")) URL(url, response.location).toString() else response.location
     }
     is OKResponse.NotFound -> {
       "$url [404]"
@@ -84,10 +93,16 @@ fun request(ok: OkHttpClient, url: HttpUrl): String? {
     is OKResponse.Error -> {
       "$url [500]"
     }
+    is OKResponse.Exception -> {
+      response.exception.toString()
+    }
   }
+}
+
+fun requestAsync(ok: OkHttpClient, url: HttpUrl) {
+  Korawler(ok).getAsynchronous(url)
 }
 
 fun header(): StringBuilder {
   return StringBuilder("desc,url,github,jobs").appendln()
 }
-

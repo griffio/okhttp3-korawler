@@ -2,6 +2,9 @@ package griffio
 
 import okhttp3.HttpUrl
 import org.junit.Test
+import java.net.URL
+import java.util.concurrent.ExecutorCompletionService
+import java.util.concurrent.Executors
 
 class KorawlerTest {
 
@@ -10,7 +13,7 @@ class KorawlerTest {
 
     val ok = okClient()
 
-    val response = Korawler(ok).getSynchronousOKResponse(HttpUrl.parse("https://letsencrypt.org/"))
+    val response = Korawler(ok).getSynchronousOKResponse(URL("https://letsencrypt.org/"))
 
     println(response)
 
@@ -21,8 +24,67 @@ class KorawlerTest {
 
     val ok = okClient()
 
-    val response = Korawler(ok).getSynchronousOKResponse(HttpUrl.parse("https://www.startssl.com/"))
+    val response = Korawler(ok).getSynchronousOKResponse(URL("https://www.startssl.com/"))
 
     println(response)
+  }
+
+  @Test
+  fun `request has relative redirect Location header`() {
+
+    val ok = okClient()
+
+    val response = Korawler(ok).getSynchronousOKResponse(URL("https://www.lyst.com/careers"))
+
+    println(response)
+  }
+
+  @Test
+  fun `async request`() {
+
+    val ok = okClient()
+
+    Korawler(ok).apply {
+      getAsynchronous(HttpUrl.parse("https://letsencrypt.org/"))
+      drainQueuedCalls()
+    }
+  }
+
+  @Test
+  fun `synchronous service request`() {
+
+    val ok = okClient()
+
+    val korawler = Korawler(ok)
+
+    val urls = listOf(URL("https://www.startssl.com/"), URL("https://letsencrypt.org/"), URL("https://www.google.com/"))
+
+    for (url in urls) {
+      println(korawler.getSynchronousOKResponse(url))
+    }
+
+    System.out.println("Done.")
+  }
+
+  @Test
+  fun `completion service request`() {
+
+    val ok = okClient()
+
+    val korawler = Korawler(ok)
+
+    val completionService = ExecutorCompletionService<OKResponse>(Executors.newFixedThreadPool(3))
+
+    val urls = listOf(URL("https://www.startssl.com/"), URL("https://letsencrypt.org/"), URL("https://www.google.com/"))
+
+    for (url in urls) {
+      completionService.submit { korawler.getSynchronousOKResponse(url) }
+    }
+
+    for (url in urls) {
+      completionService.take().get().let { println(it) }
+    }
+
+    System.out.println("Done.")
   }
 }

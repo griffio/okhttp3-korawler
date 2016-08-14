@@ -8,6 +8,7 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 import java.net.HttpURLConnection.HTTP_NOT_FOUND
+import java.net.URL
 import java.security.cert.X509Certificate
 import java.util.concurrent.LinkedBlockingQueue
 import javax.net.ssl.X509TrustManager
@@ -44,9 +45,10 @@ sealed class OKResponse {
   class Redirect(val location: String) : OKResponse()
   class NotFound() : OKResponse()
   class Error(val code: Int) : OKResponse()
+  class Exception(val exception: Throwable?) : OKResponse()
 }
 
-val tls = object:X509TrustManager {
+val tls = object : X509TrustManager {
   override fun checkClientTrusted(p0: Array<out X509Certificate>?, authType: String?) {
   }
 
@@ -60,24 +62,29 @@ val tls = object:X509TrustManager {
 
 public class Korawler(val client: OkHttpClient) {
 
-  var queue = LinkedBlockingQueue<String>()
+  var queue = LinkedBlockingQueue<OKResponse>()
 
-  fun getSynchronousOKResponse(url: HttpUrl): OKResponse {
+  fun getSynchronousOKResponse(url: URL): OKResponse {
     val request = Request.Builder().url(url).build()
     try {
       val response = client.newCall(request).execute()
-      val body = response.body()
-      val content = body.string()
-      body.close()
-      return when {
-        response.isRedirect -> OKResponse.Redirect(response.header("Location"))
-        response.isSuccessful && !getMetaRefresh(content) -> OKResponse.Success("OK")
-        response.code() == 416 -> OKResponse.Success("OK")
-        response.code() == HTTP_NOT_FOUND -> OKResponse.NotFound()
-        else -> OKResponse.Error(response.code())
-      }
+      return handleResponse(response)
     } catch (e: Exception) {
-      return OKResponse.Error(500)
+      return OKResponse.Exception(e)
+    }
+  }
+
+  fun handleResponse(response: Response): OKResponse {
+    response.headers()
+    val body = response.body()
+    val content = body.string()
+    body.close()
+    return when {
+      response.isRedirect -> OKResponse.Redirect(response.header("Location"))
+      response.isSuccessful && !getMetaRefresh(content) -> OKResponse.Success("OK")
+      response.code() == 416 -> OKResponse.Success("OK")
+      response.code() == HTTP_NOT_FOUND -> OKResponse.NotFound()
+      else -> OKResponse.Error(response.code())
     }
   }
 
@@ -95,16 +102,18 @@ public class Korawler(val client: OkHttpClient) {
 
   fun getAsynchronous(url: HttpUrl) {
 
-    val request = Request.Builder().head().url(url).build()
+    val request = Request.Builder().url(url).build()
 
     client.newCall(request).enqueue(object : Callback {
       override fun onFailure(call: Call?, ioEx: IOException?) {
-        queue.add(String.format("%s %s", call?.request()?.url(), ioEx?.message))
+        queue.add(OKResponse.Exception(ioEx))
       }
 
-      override fun onResponse(call: Call?, resp: Response?) {
-        resp?.body()?.close()
-        queue.add(String.format("%s %s", call?.request()?.url(), resp?.isSuccessful))
+      override fun onResponse(call: Call?, response: Response?) {
+        response?.let {
+          val okResponse = handleResponse(response)
+          queue.add(okResponse)
+        }
       }
     })
   }
