@@ -7,6 +7,8 @@ import java.net.URL
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.Scanner
+import java.util.concurrent.ExecutorCompletionService
+import java.util.concurrent.Executors
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
 
@@ -33,38 +35,55 @@ fun okClient(): OkHttpClient {
 
 fun main(args: Array<String>) {
 
-  val ok = okClient()
-
   val csv = URL("https://raw.githubusercontent.com/griffio/griffio.github.io/master/_data/techblogs.csv").readText()
 
-  val scanner = Scanner(csv.trimEnd())
+  val scanner = Scanner(csv.trim())
 
   scanner.useDelimiter("[,\n]")
 
-  scanner.nextLine()
-  val result = header()
+  val header = scanner.nextLine()
+
+  val koData = mutableListOf<KoData>()
 
   while (scanner.hasNextLine()) {
-
     val name = scanner.next()
     val blog = scanner.next()
     val github = scanner.next()
     val careers = scanner.next()
+    koData.add(KoData(name, URL(blog), github, URL(careers)))
+  }
 
-    println(blog)
-    println(careers)
+  val threadPool = Executors.newFixedThreadPool(koData.size / 2)
 
-    val blogUrl = URL(blog)
-    val jobsUrl = URL(careers)
+  val completionService = ExecutorCompletionService<KoData?>(threadPool)
 
-    requests(ok, KoData(name, blogUrl, github, jobsUrl)).let {
-      result.appendln("$name,$blog,$github,$careers")
+  val ok = okClient()
+
+  koData.forEach { data ->
+    completionService.submit {
+      try {
+        requests(ok, data)
+      } catch(e: Exception) {
+        e.printStackTrace()
+        null
+      }
+    }
+  }
+
+  val result = StringBuilder(header).appendln()
+
+  for (i in 1..koData.size) {
+    completionService.take().get()?.let {
+      println("submitted: ${i}: ${it}")
+      result.appendln("${it.name},${it.blog},${it.github},${it.careers}")
     }
   }
 
   FileWriter("blogs.csv").use { f ->
     f.write(result.toString())
   }
+
+  threadPool.shutdown()
 }
 
 fun requests(ok: OkHttpClient, data: KoData): KoData? {
@@ -101,8 +120,4 @@ fun request(ok: OkHttpClient, url: URL): String? {
 
 fun requestAsync(ok: OkHttpClient, url: HttpUrl) {
   Korawler(ok).getAsynchronous(url)
-}
-
-fun header(): StringBuilder {
-  return StringBuilder("desc,url,github,jobs").appendln()
 }
