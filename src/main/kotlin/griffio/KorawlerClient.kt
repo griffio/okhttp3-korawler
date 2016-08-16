@@ -55,7 +55,11 @@ fun main(args: Array<String>) {
     koData.add(KoData(name, URL(blog), github, URL(careers)))
   }
 
-  val threadPool = Executors.newFixedThreadPool(koData.size / 2)
+  val threadPool = Executors.newCachedThreadPool { runnable ->
+    Thread(runnable).apply {
+      setUncaughtExceptionHandler { thread, throwable -> throwable.printStackTrace() }
+    }
+  }
 
   val completionService = ExecutorCompletionService<KoData?>(threadPool)
 
@@ -63,12 +67,7 @@ fun main(args: Array<String>) {
 
   koData.forEach { data ->
     completionService.submit {
-      try {
-        requests(ok, data)
-      } catch(e: Exception) {
-        e.printStackTrace()
-        null
-      }
+      requests(ok, data)
     }
   }
 
