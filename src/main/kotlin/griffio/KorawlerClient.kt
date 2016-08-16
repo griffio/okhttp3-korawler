@@ -6,6 +6,8 @@ import java.io.FileWriter
 import java.net.URL
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 import java.util.Scanner
 import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
@@ -79,7 +81,9 @@ fun main(args: Array<String>) {
     }
   }
 
-  FileWriter("blogs.csv").use { f ->
+  val iso = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
+
+  FileWriter("%s.csv".format(iso)).use { f ->
     f.write(result.toString())
   }
 
