@@ -42,7 +42,7 @@ fun main(args: Array<String>) {
 
   val header = csvSeq.first()
 
-  val koData = csvSeq.filterIndexed { idx, s -> idx > 0  }.map {
+  val koData = csvSeq.drop(1).map {
     it.split(",").let { values ->
       KoData(values[0], URL(values[1]), values[2], URL(values[3]))
     }
@@ -84,8 +84,6 @@ fun main(args: Array<String>) {
 fun requests(ok: OkHttpClient, data: KoData): KoData? {
   request(ok, data.blog)?.let { blog ->
     request(ok, data.careers)?.let { careers ->
-      println(blog)
-      println(careers)
       return data.copy(blog = URL(blog), careers = URL(careers))
     }
   }
@@ -104,13 +102,16 @@ fun request(ok: OkHttpClient, url: URL): String? {
       if (response.location.startsWith("/")) URL(url, response.location).toString() else response.location
     }
     is OKResponse.NotFound -> {
-      "$url [404]"
+      println("$url [404]")
+      null
     }
     is OKResponse.Error -> {
-      "$url [500]"
+      println("$url [500]")
+      null
     }
     is OKResponse.Exception -> {
-      response.exception.toString()
+      println("$url $response.exception.message")
+      null
     }
   }
 }
