@@ -8,7 +8,6 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.time.Instant
 import java.time.format.DateTimeFormatter
-import java.util.Scanner
 import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
 import javax.net.ssl.SSLContext
@@ -37,22 +36,16 @@ fun okClient(): OkHttpClient {
 
 fun main(args: Array<String>) {
 
-  val csv = URL("https://raw.githubusercontent.com/griffio/griffio.github.io/master/_data/techblogs.csv").readText()
+  val url = "https://raw.githubusercontent.com/griffio/griffio.github.io/master/_data/techblogs.csv"
 
-  val scanner = Scanner(csv.trim())
+  val csvSeq = URL(url).readText().trim().lines().asSequence()
 
-  scanner.useDelimiter("[,\n]")
+  val header = csvSeq.first()
 
-  val header = scanner.nextLine()
-
-  val koData = mutableListOf<KoData>()
-
-  while (scanner.hasNextLine()) {
-    val name = scanner.next()
-    val blog = scanner.next()
-    val github = scanner.next()
-    val careers = scanner.next()
-    koData.add(KoData(name, URL(blog), github, URL(careers)))
+  val koData = csvSeq.filterIndexed { idx, s -> idx > 0  }.map {
+    it.split(",").let { values ->
+      KoData(values[0], URL(values[1]), values[2], URL(values[3]))
+    }
   }
 
   val threadPool = Executors.newCachedThreadPool { runnable ->
@@ -73,9 +66,8 @@ fun main(args: Array<String>) {
 
   val result = StringBuilder(header).appendln()
 
-  for (i in 1..koData.size) {
+  koData.forEach {
     completionService.take().get()?.let {
-      println("submitted: ${i}: ${it}")
       result.appendln("${it.name},${it.blog},${it.github},${it.careers}")
     }
   }
@@ -92,6 +84,8 @@ fun main(args: Array<String>) {
 fun requests(ok: OkHttpClient, data: KoData): KoData? {
   request(ok, data.blog)?.let { blog ->
     request(ok, data.careers)?.let { careers ->
+      println(blog)
+      println(careers)
       return data.copy(blog = URL(blog), careers = URL(careers))
     }
   }
