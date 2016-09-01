@@ -8,6 +8,7 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.time.Instant
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
 import javax.net.ssl.SSLContext
@@ -110,7 +111,7 @@ fun request(ok: OkHttpClient, url: URL): String? {
       null
     }
     is OKResponse.Exception -> {
-      println("$url $response.exception.message")
+      println("$url ${response.exception?.message}")
       null
     }
   }
