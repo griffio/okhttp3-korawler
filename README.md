@@ -1,6 +1,6 @@
 # okhttp3-korawler
 
-Kotlin 1.0
+Kotlin 1.0.4
 
 https://github.com/square/okhttp
 
