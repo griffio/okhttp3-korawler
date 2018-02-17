@@ -3,6 +3,7 @@ package griffio
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.net.URL
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -40,5 +41,17 @@ class KoDataTest {
     threadPool.shutdown()
     val finished = threadPool.awaitTermination(2, TimeUnit.MINUTES)
     println(if (finished) "Successful" else "Timed out")
+  }
+
+  @Test
+  fun completableFutures() {
+
+    val koData = KoData("a1", URL("http://www.example.com"), "a2", URL("http://www.example.org"))
+
+    val ok = okClient()
+
+    CompletableFuture.supplyAsync { request(ok, koData.blog) }
+        .thenCombineAsync(CompletableFuture.supplyAsync { request(ok, koData.careers) }, { a, b -> Pair(a, b) })
+        .thenAcceptAsync(::println)
   }
 }

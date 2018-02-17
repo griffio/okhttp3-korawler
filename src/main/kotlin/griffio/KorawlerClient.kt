@@ -8,7 +8,6 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.time.Instant
 import java.time.format.DateTimeFormatter
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
 import javax.net.ssl.SSLContext
@@ -45,6 +44,7 @@ fun main(args: Array<String>) {
 
   val koData = csvSeq.drop(1).map {
     it.split(",").let { values ->
+      println(values)
       KoData(values[0], URL(values[1]), values[2], URL(values[3]))
     }
   }

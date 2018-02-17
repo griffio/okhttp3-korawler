@@ -16,7 +16,6 @@ class KorawlerTest {
     val response = Korawler(ok).getSynchronousOKResponse(URL("https://letsencrypt.org/"))
 
     println(response)
-
   }
 
   @Test
@@ -42,10 +41,12 @@ class KorawlerTest {
   @Test
   fun `async request`() {
 
+    val url = HttpUrl.parse("https://letsencrypt.org/") ?: throw Exception("url parse error")
+
     val ok = okClient()
 
     Korawler(ok).apply {
-      getAsynchronous(HttpUrl.parse("https://letsencrypt.org/"))
+      getAsynchronous(url)
       drainQueuedCalls()
     }
   }

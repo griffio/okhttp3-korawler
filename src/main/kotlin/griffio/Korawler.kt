@@ -21,17 +21,17 @@ fun main(args: Array<String>) {
   }
 
   val client = OkHttpClient.Builder().build()
-  val url = HttpUrl.parse(args[1])
+  val url = HttpUrl.parse(args[1]) ?: throw Exception("parse ${args[1]}")
   val korawler = Korawler(client)
   val blogs = korawler.getSynchronous(url)
   val csv = blogs.orEmpty()
   val lines = csv.lines()
 
-  for (i in 1..lines.size - 1) {
+  for (i in 1 until lines.size) {
     val blogUrl = lines[i].substringAfter(",").substringBefore(",")
-    if (!blogUrl.isNullOrBlank()) {
+    if (!blogUrl.isBlank()) {
       println(blogUrl)
-      korawler.getAsynchronous(HttpUrl.parse(blogUrl))
+      korawler.getAsynchronous(HttpUrl.parse(blogUrl) ?: throw Exception(blogUrl))
     }
   }
 
@@ -60,27 +60,26 @@ val tls = object : X509TrustManager {
   }
 }
 
-public class Korawler(val client: OkHttpClient) {
+class Korawler(private val client: OkHttpClient) {
 
   var queue = LinkedBlockingQueue<OKResponse>()
 
   fun getSynchronousOKResponse(url: URL): OKResponse {
     val request = Request.Builder().url(url).build()
-    try {
+    return try {
       val response = client.newCall(request).execute()
-      return handleResponse(response)
+      handleResponse(response)
     } catch (e: Exception) {
-      return OKResponse.Exception(e)
+      OKResponse.Exception(e)
     }
   }
 
   fun handleResponse(response: Response): OKResponse {
-    response.headers()
-    val body = response.body()
+    val body = response.body() ?: throw Exception("body missing")
     val content = body.string()
     body.close()
     return when {
-      response.isRedirect -> OKResponse.Redirect(response.header("Location"))
+      response.isRedirect -> OKResponse.Redirect(response.header("Location") ?: throw Exception("location missing"))
       response.isSuccessful && !getMetaRefresh(content) -> OKResponse.Success("OK")
       response.code() == 416 -> OKResponse.Success("OK")
       response.code() == HTTP_NOT_FOUND -> OKResponse.NotFound()
@@ -88,7 +87,7 @@ public class Korawler(val client: OkHttpClient) {
     }
   }
 
-  fun getMetaRefresh(content: String): Boolean {
+  private fun getMetaRefresh(content: String): Boolean {
     return content.matches(Regex("(?i).*http-equiv=\"refresh\".*"))
   }
 
@@ -97,7 +96,7 @@ public class Korawler(val client: OkHttpClient) {
     val response = client.newCall(request).execute()
 
     if (!response.isSuccessful) throw IOException("Unexpected code " + response)
-    return response.body().string()
+    return response.body()?.string()
   }
 
   fun getAsynchronous(url: HttpUrl) {
